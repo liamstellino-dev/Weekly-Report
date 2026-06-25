@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Weekly Market Intelligence</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:#000; --surface:#0a0a0a; --card:#111; --card2:#161616;
+    --border:rgba(255,255,255,0.08); --text:#f5f5f7; --muted:#86868b;
+    --accent:#2997ff; --green:#30d158; --red:#ff453a; --gold:#ffd60a; --purple:#bf5af2;
+    --radius:18px; --font:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font); min-height:100vh; overflow-x:hidden; }
+
+  nav { position:fixed; top:0; left:0; right:0; z-index:100; background:rgba(0,0,0,0.75);
+    backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+    border-bottom:1px solid var(--border); padding:0 40px; height:60px;
+    display:flex; align-items:center; justify-content:space-between; }
+  .nav-brand { font-size:17px; font-weight:600; letter-spacing:-0.3px; }
+  .nav-brand span { color:var(--accent); }
+  .nav-date { font-size:13px; color:var(--muted); }
+  .nav-status { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); }
+  .status-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .tabs-wrapper { position:fixed; top:60px; left:0; right:0; z-index:99; background:rgba(0,0,0,0.85);
+    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-bottom:1px solid var(--border);
+    padding:0 40px; display:flex; overflow-x:auto; scrollbar-width:none; }
+  .tabs-wrapper::-webkit-scrollbar { display:none; }
+  .tab-btn { background:none; border:none; color:var(--muted); font-family:var(--font);
+    font-size:14px; font-weight:500; padding:16px 20px; cursor:pointer;
+    border-bottom:2px solid transparent; white-space:nowrap; transition:color .2s,border-color .2s; }
+  .tab-btn:hover { color:var(--text); }
+  .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+  main { padding-top:120px; max-width:1200px; margin:0 auto; padding-left:40px; padding-right:40px; padding-bottom:80px; }
+
+  .hero { text-align:center; padding:80px 20px 50px; background:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(41,151,255,0.15), transparent); }
+  .hero-eyebrow { font-size:12px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--accent); margin-bottom:16px; }
+  .hero-title { font-size:clamp(40px,6vw,72px); font-weight:700; letter-spacing:-2px; line-height:1.05; margin-bottom:20px; }
+  .hero-title em { font-style:normal; background:linear-gradient(135deg,#2997ff,#30d158); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .hero-sub { font-size:17px; color:var(--muted); max-width:560px; margin:0 auto 40px; line-height:1.6; }
+  .hero-meta { display:flex; justify-content:center; gap:32px; flex-wrap:wrap; }
+  .hero-stat-val { font-size:28px; font-weight:700; letter-spacing:-1px; }
+  .hero-stat-label { font-size:12px; color:var(--muted); margin-top:4px; }
+
+  /* KEY BAR */
+  .keybar { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:18px 22px; margin-top:8px; margin-bottom:28px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .keybar-icon { font-size:22px; }
+  .keybar-text { flex:1; min-width:220px; }
+  .keybar-title { font-size:14px; font-weight:600; margin-bottom:3px; }
+  .keybar-sub { font-size:12px; color:var(--muted); line-height:1.5; }
+  .keybar-sub a { color:var(--accent); text-decoration:none; }
+  .keybar-input { background:var(--card2); border:1px solid var(--border); border-radius:10px; padding:10px 14px; color:var(--text); font-family:var(--font); font-size:13px; width:200px; }
+  .keybar-input:focus { outline:none; border-color:var(--accent); }
+  .keybar-btn { background:var(--accent); color:#fff; border:none; border-radius:10px; padding:10px 18px; font-size:13px; font-weight:600; cursor:pointer; font-family:var(--font); }
+  .keybar-btn.secondary { background:var(--card2); color:var(--muted); }
+  .keybar.connected { border-color:rgba(48,209,88,0.3); background:linear-gradient(135deg,rgba(48,209,88,0.08),transparent); }
+
+  .factcheck-banner { background:linear-gradient(135deg,rgba(48,209,88,0.1),rgba(48,209,88,0.05)); border:1px solid rgba(48,209,88,0.25); border-radius:var(--radius); padding:16px 24px; display:flex; align-items:center; gap:12px; margin-bottom:32px; font-size:14px; }
+  .factcheck-icon { font-size:20px; }
+  .factcheck-text strong { color:var(--green); }
+  .factcheck-text { color:var(--muted); line-height:1.5; }
+
+  .loading-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:200px; gap:16px; }
+  .loader { width:40px; height:40px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .loading-text { font-size:14px; color:var(--muted); }
+
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+  .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; margin-bottom:20px; }
+  .grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
+  @media(max-width:900px){ .grid-2,.grid-3,.grid-4{grid-template-columns:1fr 1fr;} }
+  @media(max-width:600px){ .grid-2,.grid-3,.grid-4{grid-template-columns:1fr;} main{padding-left:20px;padding-right:20px;} nav,.tabs-wrapper{padding-left:20px;padding-right:20px;} }
+
+  .card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:28px; transition:transform .2s,border-color .2s; }
+  .card:hover { transform:translateY(-2px); border-color:rgba(255,255,255,0.14); }
+  .card-label { font-size:11px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+  .card-title { font-size:22px; font-weight:700; letter-spacing:-0.5px; margin-bottom:8px; }
+  .up { color:var(--green); } .down { color:var(--red); } .neutral { color:var(--muted); }
+
+  .section-header { margin:48px 0 24px; }
+  .section-eyebrow { font-size:11px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--accent); margin-bottom:8px; }
+  .section-title { font-size:32px; font-weight:700; letter-spacing:-1px; }
+  .section-sub { font-size:15px; color:var(--muted); margin-top:6px; line-height:1.5; }
+
+  .index-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; transition:transform .2s,border-color .2s; }
+  .index-card:hover { transform:translateY(-2px); border-color:rgba(255,255,255,0.14); }
+  .index-name { font-size:13px; font-weight:600; color:var(--muted); margin-bottom:6px; }
+  .index-val { font-size:26px; font-weight:700; letter-spacing:-0.8px; }
+  .index-change { font-size:13px; font-weight:500; margin-top:4px; }
+  .index-sub { font-size:11px; color:var(--muted); margin-top:6px; }
+  .index-locked { opacity:0.55; }
+  .index-locked .index-val { font-size:20px; color:var(--muted); }
+
+  .chart-container { position:relative; height:280px; }
+  .chart-container-sm { position:relative; height:200px; }
+  .chart-locked { display:flex; align-items:center; justify-content:center; height:280px; flex-direction:column; gap:10px; color:var(--muted); text-align:center; }
+  .chart-locked-icon { font-size:30px; opacity:0.5; }
+
+  .news-item { padding:20px 0; border-bottom:1px solid var(--border); }
+  .news-item:last-child { border-bottom:none; }
+  .news-tag { display:inline-block; font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; padding:3px 8px; border-radius:4px; background:rgba(41,151,255,0.15); color:var(--accent); margin-bottom:8px; }
+  .news-tag.tag-au { background:rgba(255,214,10,0.12); color:var(--gold); }
+  .news-tag.tag-eu { background:rgba(48,209,88,0.1); color:var(--green); }
+  .news-tag.tag-us { background:rgba(255,69,58,0.1); color:var(--red); }
+  .news-headline { font-size:16px; font-weight:600; line-height:1.4; margin-bottom:6px; }
+  .news-headline a { color:var(--text); text-decoration:none; }
+  .news-headline a:hover { color:var(--accent); }
+  .news-summary { font-size:13px; color:var(--muted); line-height:1.6; }
+  .news-source { font-size:11px; color:var(--muted); margin-top:8px; }
+  .news-source a { color:var(--accent); text-decoration:none; }
+
+  .sector-row { display:flex; align-items:center; gap:16px; padding:12px 0; border-bottom:1px solid var(--border); }
+  .sector-row:last-child { border-bottom:none; }
+  .sector-name { font-size:13px; font-weight:500; width:130px; flex-shrink:0; }
+  .sector-pct { font-size:13px; font-weight:600; width:64px; text-align:right; flex-shrink:0; }
+
+  .sources-section { margin-top:64px; padding-top:40px; border-top:1px solid var(--border); }
+  .sources-title { font-size:18px; font-weight:700; margin-bottom:20px; }
+  .sources-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+  .source-chip { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 16px; font-size:12px; color:var(--muted); display:flex; align-items:center; gap:8px; }
+  .source-chip-icon { font-size:16px; }
+
+  .disclaimer { font-size:11px; color:var(--muted); opacity:.6; text-align:center; margin-top:40px; line-height:1.8; max-width:720px; margin:40px auto 0; }
+
+  .fade-in { animation:fadeIn .5s ease both; }
+  .fade-in-2 { animation:fadeIn .5s .1s ease both; }
+  .fade-in-3 { animation:fadeIn .5s .2s ease both; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:none} }
+
+  .error-box { background:rgba(255,69,58,0.08); border:1px solid rgba(255,69,58,0.2); border-radius:var(--radius); padding:24px; text-align:center; }
+  .error-box p { color:var(--red); font-size:15px; }
+  .retry-btn { margin-top:16px; background:var(--accent); color:#fff; border:none; border-radius:10px; padding:10px 24px; font-size:14px; font-weight:600; cursor:pointer; font-family:var(--font); }
+
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+  .news-loading { color:var(--muted); font-size:14px; padding:16px 0; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">Market<span>Intelligence</span></div>
+  <div class="nav-date" id="nav-date"></div>
+  <div class="nav-status"><div class="status-dot"></div><span id="nav-status-text">Loading…</span></div>
+</nav>
+
+<div class="tabs-wrapper">
+  <button class="tab-btn active" data-tab="dashboard">📊 Dashboard</button>
+  <button class="tab-btn" data-tab="global">🌐 Global</button>
+  <button class="tab-btn" data-tab="australia">🇦🇺 Australia</button>
+  <button class="tab-btn" data-tab="us">🇺🇸 United States</button>
+  <button class="tab-btn" data-tab="europe">🇪🇺 Europe</button>
+</div>
+
+<main>
+  <!-- KEY BAR — pinned at top of every tab -->
+  <div class="keybar" id="keybar">
+    <div class="keybar-icon" id="keybar-icon">🔑</div>
+    <div class="keybar-text">
+      <div class="keybar-title" id="keybar-title">Connect live market data</div>
+      <div class="keybar-sub" id="keybar-sub">Headlines work without this. To activate live index prices &amp; charts on every tab, paste your key from <a href="https://twelvedata.com/account/api-keys" target="_blank" rel="noopener">twelvedata.com</a> and tap Connect. Saved only in this browser.</div>
+    </div>
+    <input class="keybar-input" id="keybar-input" type="text" placeholder="Paste API key" autocomplete="off" spellcheck="false"/>
+    <button class="keybar-btn" id="keybar-save">Connect</button>
+    <button class="keybar-btn secondary" id="keybar-clear" style="display:none">Remove</button>
+  </div>
+
+  <div class="tab-content active" id="tab-dashboard">
+    <div class="hero fade-in">
+      <div class="hero-eyebrow">Weekly Intelligence Report</div>
+      <h1 class="hero-title">Global Markets<br><em>This Week</em></h1>
+      <p class="hero-sub">Live headlines across four regions, every time you open the page. Connect a free market-data key to light up index numbers and charts.</p>
+      <div class="hero-meta">
+        <div><div class="hero-stat-val" id="hm-headlines">—</div><div class="hero-stat-label">Live Headlines</div></div>
+        <div><div class="hero-stat-val">4</div><div class="hero-stat-label">Regions</div></div>
+        <div><div class="hero-stat-val" id="hm-markets">—</div><div class="hero-stat-label">Markets</div></div>
+        <div><div class="hero-stat-val">W<span id="hm-weeknum">—</span></div><div class="hero-stat-label">Week of Year</div></div>
+      </div>
+    </div>
+
+    <div class="section-header fade-in-2">
+      <div class="section-eyebrow">This Week's Pulse</div>
+      <div class="section-title">Key Market Snapshot</div>
+      <div class="section-sub">Major indices over the past trading week. Add a key to populate live values.</div>
+    </div>
+    <div class="grid-4" id="index-cards"></div>
+    <div class="grid-2 fade-in-2">
+      <div class="card"><div class="card-label">Weekly Trend</div><div class="card-title">Major Indices — 5 Day</div><div id="trend-wrap"><div class="chart-container"><canvas id="trendChart"></canvas></div></div></div>
+      <div class="card"><div class="card-label">Region Scorecard</div><div class="card-title">Weekly % Change</div><div id="score-wrap"><div class="chart-container"><canvas id="scoreChart"></canvas></div></div></div>
+    </div>
+
+    <div class="section-header fade-in-3">
+      <div class="section-eyebrow">Weekly Headlines</div>
+      <div class="section-title">What's Moving Markets</div>
+      <div class="section-sub">Pulled live from major business news feeds.</div>
+    </div>
+    <div class="card fade-in-3" style="margin-bottom:20px"><div id="dashboard-news"><div class="news-loading">Loading headlines…</div></div></div>
+  </div>
+
+  <div class="tab-content" id="tab-global">
+    <div class="section-header"><div class="section-eyebrow">Global Markets</div><div class="section-title">Worldwide Overview</div><div class="section-sub">Major indices across every major region this week.</div></div>
+    <div class="grid-3" id="global-index-cards"></div>
+    <div class="card" style="margin-bottom:20px"><div class="card-label">Chart</div><div class="card-title" style="margin-bottom:16px">Global Weekly Performance</div><div id="global-chart-wrap"><div class="chart-container"><canvas id="globalChart"></canvas></div></div></div>
+    <div class="section-header"><div class="section-eyebrow">Global Events</div><div class="section-title">Key Developments</div></div>
+    <div class="card" style="margin-bottom:20px"><div id="global-news"><div class="news-loading">Loading headlines…</div></div></div>
+  </div>
+
+  <div class="tab-content" id="tab-australia">
+    <div class="section-header"><div class="section-eyebrow">Australian Markets</div><div class="section-title">ASX & Local Economy</div><div class="section-sub">Australian indices, the dollar, and key commodities.</div></div>
+    <div class="grid-4" id="au-index-cards"></div>
+    <div class="grid-2">
+      <div class="card"><div class="card-label">AUD & Commodities</div><div class="card-title" style="margin-bottom:16px">Currency & Resources</div><div id="au-commodities"></div></div>
+      <div class="card"><div class="card-label">Chart</div><div class="card-title" style="margin-bottom:16px">ASX 200 — 5 Day</div><div id="au-chart-wrap"><div class="chart-container-sm"><canvas id="auChart"></canvas></div></div></div>
+    </div>
+    <div class="section-header"><div class="section-eyebrow">Australian News</div><div class="section-title">This Week in Australia</div></div>
+    <div class="card" style="margin-bottom:20px"><div id="au-news"><div class="news-loading">Loading headlines…</div></div></div>
+  </div>
+
+  <div class="tab-content" id="tab-us">
+    <div class="section-header"><div class="section-eyebrow">United States Markets</div><div class="section-title">Wall Street & Economy</div><div class="section-sub">The major US indices and this week's headlines.</div></div>
+    <div class="grid-4" id="us-index-cards"></div>
+    <div class="card" style="margin-bottom:20px"><div class="card-label">Chart</div><div class="card-title" style="margin-bottom:16px">US Indices — 5 Day</div><div id="us-chart-wrap"><div class="chart-container"><canvas id="usChart"></canvas></div></div></div>
+    <div class="section-header"><div class="section-eyebrow">US News</div><div class="section-title">This Week in America</div></div>
+    <div class="card" style="margin-bottom:20px"><div id="us-news"><div class="news-loading">Loading headlines…</div></div></div>
+  </div>
+
+  <div class="tab-content" id="tab-europe">
+    <div class="section-header"><div class="section-eyebrow">European Markets</div><div class="section-title">FTSE, DAX & Euro Zone</div><div class="section-sub">Europe's leading indices, the euro and the pound.</div></div>
+    <div class="grid-4" id="eu-index-cards"></div>
+    <div class="card" style="margin-bottom:20px"><div class="card-label">Chart</div><div class="card-title" style="margin-bottom:16px">European Indices — 5 Day</div><div id="eu-chart-wrap"><div class="chart-container"><canvas id="euChart"></canvas></div></div></div>
+    <div class="section-header"><div class="section-eyebrow">European News</div><div class="section-title">This Week in Europe</div></div>
+    <div class="card" style="margin-bottom:20px"><div id="eu-news"><div class="news-loading">Loading headlines…</div></div></div>
+  </div>
+
+  <div class="sources-section" id="sources-section">
+    <div class="sources-title">Sources & Methodology</div>
+    <div class="sources-grid" id="sources-grid"></div>
+    <p class="disclaimer">Headlines are pulled live from public RSS feeds of major news organisations (Guardian, ABC, CNBC, Yahoo Finance). Market data, when a key is connected, comes from Twelve Data. Weekly change = movement over the trailing trading week. This is not financial advice; past performance does not indicate future results. © Weekly Market Intelligence — generated <span id="gen-date"></span>.</p>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const weekNum = () => { const d=new Date(),s=new Date(d.getFullYear(),0,1); return Math.ceil((((d-s)/86400000)+s.getDay()+1)/7); };
+const fmtPct = n => n==null||isNaN(n)?'—':(n>=0?'+':'')+Number(n).toFixed(2)+'%';
+const clr = n => n==null||isNaN(n)?'neutral':n>=0?'up':'down';
+const fmtNum = (n,d=2) => n==null||isNaN(n)?'—':Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+function setDate(){ const d=new Date();
+  $('nav-date').textContent=d.toLocaleDateString('en-AU',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  $('gen-date').textContent=d.toLocaleString('en-AU'); $('hm-weeknum').textContent=weekNum();
+}
+
+// ── API KEY (saved in browser) ────────────────────────────────────────────────
+const KEY_STORE = 'twelvedata_key';
+let API_KEY = '';
+try { API_KEY = localStorage.getItem(KEY_STORE) || ''; } catch(e){}
+
+const charts = {}; // track Chart instances to destroy on refresh
+
+function refreshKeybar() {
+  const kb=$('keybar');
+  if(API_KEY) {
+    kb.classList.add('connected');
+    $('keybar-icon').textContent='✅';
+    $('keybar-title').textContent='Live market data connected';
+    $('keybar-sub').innerHTML='Index prices &amp; charts are now live on every tab. Key is stored only in this browser.';
+    $('keybar-input').style.display='none';
+    $('keybar-save').style.display='none';
+    $('keybar-clear').style.display='inline-block';
+  } else {
+    kb.classList.remove('connected');
+    $('keybar-icon').textContent='🔑';
+    $('keybar-title').textContent='Add live market numbers (optional)';
+    $('keybar-sub').innerHTML='Headlines work without this. For live index prices &amp; charts, paste a free key from <a href="https://twelvedata.com/pricing" target="_blank" rel="noopener">twelvedata.com</a> (free tier, ~2 min signup). Saved only in this browser.';
+    $('keybar-input').style.display='inline-block';
+    $('keybar-save').style.display='inline-block';
+    $('keybar-clear').style.display='none';
+  }
+}
+$('keybar-save').addEventListener('click', ()=>{
+  const v=$('keybar-input').value.trim();
+  if(!v) return;
+  API_KEY=v; try{ localStorage.setItem(KEY_STORE,v); }catch(e){}
+  refreshKeybar();
+  // reload market data for all tabs already viewed
+  reloadAllMarketData();
+});
+$('keybar-clear').addEventListener('click', ()=>{
+  API_KEY=''; try{ localStorage.removeItem(KEY_STORE); }catch(e){}
+  refreshKeybar(); reloadAllMarketData();
+});
+
+// ── TWELVE DATA (CORS-enabled, no proxy needed) ───────────────────────────────
+// Free Basic plan = 8 credits/minute, each symbol = 1 credit. So we fetch EVERY
+// symbol the whole report needs in ONE batched call, cache it, and every tab reads
+// from that cache. One burst, well within daily limit, never re-fetched per tab.
+let MARKET_CACHE = null;      // {SYM: seriesObj}
+let MARKET_FETCH = null;      // in-flight promise (dedupe concurrent callers)
+
+// Every symbol used anywhere in the report (deduped)
+function allReportSymbols() {
+  const set = new Set();
+  Object.values(SYMBOLS).forEach(defs => defs.forEach(d => set.add(d[0])));
+  AU_COMMODITIES.forEach(c => set.add(c[0]));
+  return [...set];
+}
+
+async function tdBatch(symbols) {
+  // Twelve Data caps batch size; chunk to <=8 per request to respect the per-minute
+  // credit ceiling, spacing chunks slightly so we never exceed 8 credits in a burst.
+  const out = {};
+  const CHUNK = 8;
+  for (let i = 0; i < symbols.length; i += CHUNK) {
+    const slice = symbols.slice(i, i + CHUNK);
+    const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(slice.join(','))}&interval=1day&outputsize=7&apikey=${encodeURIComponent(API_KEY)}`;
+    const r = await fetch(url, {cache:'no-store'});
+    const j = await r.json();
+    if (j && j.status === 'error') {
+      // rate limit or bad key — surface a typed error
+      if (/run out|limit|credit/i.test(j.message||'')) throw new Error('RATE_LIMIT');
+      throw new Error(j.message || 'API error');
+    }
+    if (slice.length === 1) { out[slice[0]] = j; }
+    else { Object.assign(out, j); }
+    // small gap between chunks so two chunks don't land in the same minute-burst
+    if (i + CHUNK < symbols.length) await new Promise(res => setTimeout(res, 1200));
+  }
+  return out;
+}
+
+// Returns the shared cache, fetching once. Concurrent callers await the same promise.
+async function getMarketData() {
+  if (!API_KEY) return {};
+  if (MARKET_CACHE) return MARKET_CACHE;
+  if (MARKET_FETCH) return MARKET_FETCH;
+  MARKET_FETCH = tdBatch(allReportSymbols())
+    .then(data => { MARKET_CACHE = data; MARKET_FETCH = null; return data; })
+    .catch(err => { MARKET_FETCH = null; throw err; });
+  return MARKET_FETCH;
+}
+
+function seriesToIndex(obj, name, sub, decimals=2) {
+  try {
+    if(!obj || obj.status==='error' || !obj.values || !obj.values.length) throw new Error('no data');
+    const vals = obj.values.slice().reverse().map(v=>({date:v.datetime, close:parseFloat(v.close)})).filter(v=>!isNaN(v.close));
+    if(vals.length<2) throw new Error('thin');
+    const last=vals[vals.length-1].close, weekAgo=vals[0].close;
+    const change=((last-weekAgo)/weekAgo)*100;
+    return { name, sub, ok:true, value:fmtNum(last,decimals), change, series:vals.map(v=>v.close), labels:vals.map(v=>v.date.slice(5)) };
+  } catch(e) {
+    return { name, sub, ok:false, value:'—', change:null, series:[], labels:[] };
+  }
+}
+
+// ── RSS NEWS (keyless, via CORS proxy) ────────────────────────────────────────
+// Note: corsproxy.io's free tier only works from dev origins (localhost, github.io…),
+// NOT arbitrary hosted domains like Netlify. These proxies work from any origin.
+const PROXIES = [
+  u => 'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
+  u => 'https://api.codetabs.com/v1/proxy/?quest='+encodeURIComponent(u),
+  u => 'https://thingproxy.freeboard.io/fetch/'+u,
+];
+async function proxyText(url){
+  let last;
+  for(const p of PROXIES){ try{ const r=await fetch(p(url),{cache:'no-store'}); if(r.ok) return await r.text(); last=new Error('HTTP '+r.status);}catch(e){last=e;} }
+  throw last||new Error('proxy failed');
+}
+async function getRSS(feedUrl, tag, tagClass, max=4){
+  try{
+    const xml=await proxyText(feedUrl);
+    const doc=new DOMParser().parseFromString(xml,'text/xml');
+    let items=[...doc.querySelectorAll('item')];
+    if(!items.length) items=[...doc.querySelectorAll('entry')];
+    return items.slice(0,max).map(it=>{
+      const get=sel=>{const e=it.querySelector(sel);return e?e.textContent.trim():'';};
+      let link=get('link'); if(!link){const le=it.querySelector('link');link=le?le.getAttribute('href'):'#';}
+      let summary=(get('description')||get('summary')||'').replace(/<[^>]+>/g,'').replace(/&[^;]+;/g,' ').trim().slice(0,180);
+      const date=get('pubDate')||get('published')||'';
+      return {tag,tagClass,headline:get('title'),summary,source:tag,sourceUrl:link||'#',
+        date:date?new Date(date).toLocaleDateString('en-AU',{month:'short',day:'numeric'}):''};
+    });
+  }catch(e){ return []; }
+}
+const FEEDS={
+  global:'https://www.theguardian.com/business/rss', globalAlt:'https://feeds.a.dj.com/rss/RSSMarketsMain.xml',
+  au:'https://www.abc.net.au/news/feed/51120/rss.xml', auAlt:'https://www.theguardian.com/australia-news/business/rss',
+  us:'https://www.cnbc.com/id/100003114/device/rss/rss.html', usAlt:'https://finance.yahoo.com/news/rssindex',
+  eu:'https://www.theguardian.com/business/economics/rss', euAlt:'https://www.theguardian.com/world/eurozone/rss',
+};
+async function newsWithFallback(primary,alt,tag,tagClass){
+  let items=await getRSS(primary,tag,tagClass);
+  if(!items.length&&alt) items=await getRSS(alt,tag,tagClass);
+  return items;
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function renderIndexCards(id, indices){
+  const el=$(id); if(!el) return;
+  el.innerHTML=indices.map(idx=>{
+    if(!API_KEY) return `<div class="index-card index-locked fade-in"><div class="index-name">${idx.name}</div><div class="index-val">🔒 add key</div><div class="index-sub">${idx.sub||''}</div></div>`;
+    return `<div class="index-card fade-in"><div class="index-name">${idx.name}</div><div class="index-val">${idx.value}</div><div class="index-change ${clr(idx.change)}">${idx.ok?fmtPct(idx.change)+' this week':'unavailable'}</div>${idx.sub?`<div class="index-sub">${idx.sub}</div>`:''}</div>`;
+  }).join('');
+}
+function renderNews(id, items){
+  const el=$(id); if(!el) return;
+  if(!items.length){ el.innerHTML='<p class="news-loading">Headlines couldn\u2019t load right now — try refreshing in a moment.</p>'; return; }
+  el.innerHTML=items.map(n=>`<div class="news-item"><div class="news-tag ${n.tagClass||''}">${n.tag}</div><div class="news-headline"><a href="${n.sourceUrl}" target="_blank" rel="noopener">${n.headline}</a></div>${n.summary?`<div class="news-summary">${n.summary}…</div>`:''}<div class="news-source"><a href="${n.sourceUrl}" target="_blank" rel="noopener">${n.source}</a>${n.date?' — '+n.date:''}</div></div>`).join('');
+}
+function renderCommodities(id, rows){
+  const el=$(id); if(!el) return;
+  if(!API_KEY){ el.innerHTML='<p class="news-loading">🔒 Add a market-data key to see live commodity prices.</p>'; return; }
+  el.innerHTML=rows.map(c=>`<div class="sector-row"><div class="sector-name" style="flex:1">${c.name}</div><div style="font-size:15px;font-weight:600">${c.value}</div><div class="sector-pct ${clr(c.change)}">${c.ok?fmtPct(c.change):'—'}</div></div>`).join('');
+}
+function lockChart(wrapId, msg){
+  const w=$(wrapId); if(!w) return;
+  w.innerHTML=`<div class="chart-locked"><div class="chart-locked-icon">🔒</div><div>${msg||'Add a market-data key to view this chart'}</div></div>`;
+}
+function ensureCanvas(wrapId, canvasId, small){
+  const w=$(wrapId); if(!w) return;
+  w.innerHTML=`<div class="${small?'chart-container-sm':'chart-container'}"><canvas id="${canvasId}"></canvas></div>`;
+}
+function lineChart(wrapId, canvasId, indices, small){
+  const valid=indices.filter(i=>i.ok&&i.series.length>1);
+  if(!valid.length){ lockChart(wrapId, API_KEY?'Chart data unavailable right now':'Add a market-data key to view this chart'); return; }
+  ensureCanvas(wrapId, canvasId, small);
+  const ctx=$(canvasId); if(!ctx) return;
+  if(charts[canvasId]) charts[canvasId].destroy();
+  const colors=['#2997ff','#30d158','#ffd60a','#bf5af2','#ff453a','#64d2ff'];
+  const labels=valid[0].labels;
+  const datasets=valid.map((idx,i)=>{ const base=idx.series[0];
+    return {label:idx.name,data:idx.series.map(v=>((v-base)/base*100)),borderColor:colors[i%colors.length],backgroundColor:'transparent',tension:0.35,borderWidth:2,pointRadius:2}; });
+  charts[canvasId]=new Chart(ctx,{type:'line',data:{labels,datasets},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:'#86868b',font:{size:11}}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtPct(c.raw)}}},
+      scales:{x:{ticks:{color:'#86868b',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},
+              y:{ticks:{color:'#86868b',font:{size:10},callback:v=>v.toFixed(1)+'%'},grid:{color:'rgba(255,255,255,0.04)'}}}}});
+}
+function barChart(wrapId, canvasId, indices){
+  const valid=indices.filter(i=>i.ok);
+  if(!valid.length){ lockChart(wrapId, API_KEY?'Chart data unavailable right now':'Add a market-data key to view this chart'); return; }
+  ensureCanvas(wrapId, canvasId, false);
+  const ctx=$(canvasId); if(!ctx) return;
+  if(charts[canvasId]) charts[canvasId].destroy();
+  charts[canvasId]=new Chart(ctx,{type:'bar',
+    data:{labels:valid.map(i=>i.name),datasets:[{data:valid.map(i=>i.change),backgroundColor:valid.map(i=>i.change>=0?'rgba(48,209,88,0.75)':'rgba(255,69,58,0.75)'),borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtPct(c.raw)}}},
+      scales:{x:{ticks:{color:'#86868b',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#86868b',font:{size:10},callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.05)'}}}}});
+}
+function renderSources(){
+  const sg=$('sources-grid'); if(!sg) return;
+  const sources=[
+    {icon:'📰',name:'Guardian / WSJ',detail:'Global business news'},
+    {icon:'📰',name:'ABC News (AU)',detail:'Australian news'},
+    {icon:'📰',name:'CNBC / Yahoo Finance',detail:'US markets news'},
+    {icon:'📰',name:'Guardian Economics',detail:'Europe & UK news'},
+    {icon:'📊',name:'Twelve Data',detail:'Index & FX prices (with key)'},
+  ];
+  sg.innerHTML=sources.map(s=>`<div class="source-chip"><span class="source-chip-icon">${s.icon}</span><div><div style="color:var(--text);font-weight:500">${s.name}</div><div style="font-size:10px">${s.detail}</div></div></div>`).join('');
+}
+
+// ── MARKET DATA PER TAB ───────────────────────────────────────────────────────
+// Twelve Data index symbols
+const SYMBOLS = {
+  dashboard: [['SPX','S&P 500','United States'],['IXIC','NASDAQ','US Tech'],['XJO','ASX 200','Australia'],['UKX','FTSE 100','UK']],
+  global: [['SPX','S&P 500','USA'],['DJI','Dow Jones','USA'],['IXIC','NASDAQ','USA'],['UKX','FTSE 100','UK'],['DAX','DAX','Germany'],['N225','Nikkei 225','Japan']],
+  australia: [['XJO','ASX 200','Australia'],['XAO','All Ordinaries','Australia'],['AUD/USD','AUD/USD','Forex',4],['XKO','ASX 300','Broad']],
+  us: [['SPX','S&P 500','Large Cap'],['DJI','Dow Jones','30 Stocks'],['IXIC','NASDAQ','Tech'],['RUT','Russell 2000','Small Cap']],
+  europe: [['UKX','FTSE 100','UK'],['DAX','DAX','Germany'],['CAC','CAC 40','France'],['SX5E','Euro Stoxx 50','Eurozone']],
+};
+const AU_COMMODITIES = [['XAU/USD','Gold (USD/oz)','',2],['XAG/USD','Silver (USD/oz)','',2],['WTI/USD','Crude Oil (USD/bbl)','',2],['AUD/USD','AUD/USD','',4]];
+
+async function loadMarketData(tabKey, cardsId, chartFn) {
+  const defs = SYMBOLS[tabKey];
+  if(!API_KEY) {
+    const placeholders = defs.map(d=>({name:d[1],sub:d[2],ok:false,value:'—',change:null,series:[],labels:[]}));
+    renderIndexCards(cardsId, placeholders);
+    chartFn(placeholders);
+    return;
+  }
+  try {
+    const data = await getMarketData();              // shared, fetched once
+    const indices = defs.map(d=>seriesToIndex(data[d[0]], d[1], d[2], d[3]||2));
+    renderIndexCards(cardsId, indices);
+    chartFn(indices);
+    const okCount = indices.filter(i=>i.ok).length;
+    if(tabKey==='dashboard') $('hm-markets').textContent = okCount;
+  } catch(e) {
+    console.error(e);
+    const placeholders = defs.map(d=>({name:d[1],sub:d[2],ok:false,value:'—',change:null,series:[],labels:[]}));
+    renderIndexCards(cardsId, placeholders);
+    chartFn(placeholders);
+    if(e.message==='RATE_LIMIT') {
+      $('keybar-sub').innerHTML='<span style="color:var(--gold)">Hit the per-minute limit on the free plan. Wait ~60 seconds, then tap any tab to retry — data loads in one batch so this should be a one-time wait.</span>';
+    }
+  }
+}
+
+// ── TAB LOADERS ───────────────────────────────────────────────────────────────
+const marketReloaders = {}; // tabName -> fn to re-run market data
+
+async function loadDashboard(){
+  marketReloaders.dashboard = async ()=>{
+    await loadMarketData('dashboard','index-cards', (idx)=>{
+      lineChart('trend-wrap','trendChart',idx,false);
+      barChart('score-wrap','scoreChart',idx);
+    });
+  };
+  await marketReloaders.dashboard();
+  const news=await newsWithFallback(FEEDS.global,FEEDS.globalAlt,'GLOBAL','');
+  renderNews('dashboard-news', news);
+  $('hm-headlines').textContent = news.length || '—';
+  $('nav-status-text').textContent='Live — '+new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
+}
+async function loadGlobal(){
+  marketReloaders.global = async ()=>{
+    await loadMarketData('global','global-index-cards',(idx)=>lineChart('global-chart-wrap','globalChart',idx,false));
+  };
+  await marketReloaders.global();
+  renderNews('global-news', await newsWithFallback(FEEDS.global,FEEDS.globalAlt,'GLOBAL',''));
+}
+async function loadAustralia(){
+  marketReloaders.australia = async ()=>{
+    await loadMarketData('australia','au-index-cards',(idx)=>lineChart('au-chart-wrap','auChart',[idx[0]],true));
+    // commodities
+    if(!API_KEY){ renderCommodities('au-commodities', []); }
+    else {
+      try {
+        const data=await getMarketData();
+        const rows=AU_COMMODITIES.map(c=>{ const idx=seriesToIndex(data[c[0]],c[1],c[2],c[3]||2); return {name:c[1],value:idx.value,change:idx.change,ok:idx.ok}; });
+        renderCommodities('au-commodities', rows);
+      } catch(e){ renderCommodities('au-commodities', []); }
+    }
+  };
+  await marketReloaders.australia();
+  renderNews('au-news', await newsWithFallback(FEEDS.au,FEEDS.auAlt,'AUS','tag-au'));
+}
+async function loadUS(){
+  marketReloaders.us = async ()=>{
+    await loadMarketData('us','us-index-cards',(idx)=>lineChart('us-chart-wrap','usChart',idx,false));
+  };
+  await marketReloaders.us();
+  renderNews('us-news', await newsWithFallback(FEEDS.us,FEEDS.usAlt,'US','tag-us'));
+}
+async function loadEurope(){
+  marketReloaders.europe = async ()=>{
+    await loadMarketData('europe','eu-index-cards',(idx)=>lineChart('eu-chart-wrap','euChart',idx,false));
+  };
+  await marketReloaders.europe();
+  renderNews('eu-news', await newsWithFallback(FEEDS.eu,FEEDS.euAlt,'EU','tag-eu'));
+}
+
+function reloadAllMarketData(){
+  // key changed — drop the cache so the next load re-fetches fresh
+  MARKET_CACHE = null; MARKET_FETCH = null;
+  // re-run only the market portion for tabs already loaded
+  Object.values(marketReloaders).forEach(fn=>{ try{ fn(); }catch(e){} });
+}
+
+// ── TAB SWITCHING + QUEUE ─────────────────────────────────────────────────────
+const loaded={dashboard:false,global:false,australia:false,us:false,europe:false};
+let chain=Promise.resolve();
+const enqueue=fn=>{ chain=chain.then(()=>fn()).catch(()=>{}); return chain; };
+const LOADERS={global:loadGlobal,australia:loadAustralia,us:loadUS,europe:loadEurope};
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const name=btn.dataset.tab;
+    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    $('tab-'+name).classList.add('active');
+    btn.classList.add('active');
+    if(!loaded[name]&&LOADERS[name]){ loaded[name]=true; enqueue(LOADERS[name]); }
+  });
+});
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+setDate();
+refreshKeybar();
+renderSources();
+loaded.dashboard=true;
+enqueue(loadDashboard);
+</script>
+</body>
+</html>
